@@ -10,4 +10,4 @@ The script initializes a topic called 'kraken-trades' if it does not exist. Then
 # Motivation
 Done purely as an exercise to learn about websockets, streaming APIs, and integrating a reliable Kafka instance with back-ups. Most of the time spent was on finding the correct Docker image, and configuring the docker-compose.yml file with the correct broker and controller endpoints, and topic set-up. The topic sometimes takes time to create, so a bash script is written called wait-for-kafka.sh that retries topic creation till it's done and does this before spinning up the producer and consumer scripts.
 
-![Diagram](data/diagram.png)
+![Diagram](data/output.png)
