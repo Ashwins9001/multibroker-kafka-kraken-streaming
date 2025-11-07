@@ -64,7 +64,6 @@ def on_message(ws, message):
                 "side": trade[3]
             }
             producer.send(TOPIC, trade_message)
-            print(f"Sent trade: {trade_message}")
 
 def on_error(ws, error):
     print(f"WebSocket error: {error}")

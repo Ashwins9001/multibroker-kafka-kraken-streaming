@@ -43,6 +43,20 @@ services:
     networks:
       - kafka-net
 
+  kafka-viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile.viewer
+    container_name: kafka-viewer
+    depends_on:
+      - kafka-1
+      - kafka-2
+    volumes:
+      - ./data:/app/data
+    networks:
+      - kafka-net
+    tty: true   # keeps container running
+
   kraken-producer:
     build:
       context: .
@@ -51,19 +65,6 @@ services:
     depends_on:
       - kafka-1
       - kafka-2
-    networks:
-      - kafka-net
-
-  kraken-consumer:
-    build:
-      context: .
-      dockerfile: Dockerfile.consumer
-    container_name: kraken-consumer
-    depends_on:
-      - kafka-1
-      - kafka-2
-    volumes:
-      - ./data:/app/data
     networks:
       - kafka-net
 
