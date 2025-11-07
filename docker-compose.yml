@@ -2,69 +2,46 @@ version: '3.8'
 
 services:
   kafka-1:
-    image: confluentinc/cp-kafka:7.7.0
+    image: apache/kafka:3.8.1
     container_name: kafka-1
     ports:
       - "9092:9092"
-      - "9093:9093"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9095
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9095
-      KAFKA_CLUSTER_ID: "qwertyuiopasdfgh"
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+      KAFKA_LOG4J_LOGGERS: "kafka.server.DefaultAutoTopicCreationManager=WARN"
     volumes:
       - kafka1-data:/var/lib/kafka/data
     networks:
       - kafka-net
 
   kafka-2:
-    image: confluentinc/cp-kafka:7.7.0
+    image: apache/kafka:3.8.1
     container_name: kafka-2
     ports:
       - "9094:9094"
-      - "9095:9095"
     environment:
       KAFKA_NODE_ID: 2
       KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9095
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094,CONTROLLER://0.0.0.0:9095
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9094
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9095
-      KAFKA_CLUSTER_ID: "qwertyuiopasdfgh"
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+      KAFKA_LOG4J_LOGGERS: "kafka.server.DefaultAutoTopicCreationManager=WARN"
     volumes:
       - kafka2-data:/var/lib/kafka/data
     networks:
       - kafka-net
-
-  kafka-init:
-    image: confluentinc/cp-kafka:7.7.0
-    depends_on:
-      - kafka-1
-      - kafka-2
-    networks:
-      - kafka-net
-    entrypoint: >
-      sh -c "
-      echo 'Waiting for Kafka brokers to be ready...' &&
-      until kafka-topics --bootstrap-server kafka-1:9092,kafka-2:9094 --list >/dev/null 2>&1; do
-        echo 'Waiting for brokers...'; sleep 5;
-      done &&
-      kafka-topics --create --topic kraken-trades --bootstrap-server kafka-1:9092,kafka-2:9094 --partitions 3 --replication-factor 2 ||
-      echo 'Topic kraken-trades already exists'
-      "
 
   kraken-producer:
     build:
@@ -72,7 +49,8 @@ services:
       dockerfile: Dockerfile.producer
     container_name: kraken-producer
     depends_on:
-      - kafka-init
+      - kafka-1
+      - kafka-2
     networks:
       - kafka-net
 
@@ -82,9 +60,10 @@ services:
       dockerfile: Dockerfile.consumer
     container_name: kraken-consumer
     depends_on:
-      - kafka-init
+      - kafka-1
+      - kafka-2
     volumes:
-      - ./kraken_trades.txt:/app/kraken_trades.txt
+      - ./data:/app/data
     networks:
       - kafka-net
 

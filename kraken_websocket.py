@@ -1,30 +1,60 @@
 import json
+import time
 from kafka import KafkaProducer
+from kafka.errors import KafkaError, TopicAlreadyExistsError
+from kafka.admin import KafkaAdminClient, NewTopic
 from websocket import WebSocketApp
 
-# ---------- Kafka Producer ----------
-producer = KafkaProducer(
-    bootstrap_servers=["kafka-1:9092", "kafka-2:9094"],
-    value_serializer=lambda v: json.dumps(v).encode("utf-8")
-)
+BOOTSTRAP_SERVERS = ["kafka-1:9092", "kafka-2:9094"]
+TOPIC = "kraken-trades"
 
-topic_name = "kraken-trades"
+# Retry Kafka connection & admin client
+while True:
+    try:
+        admin = KafkaAdminClient(bootstrap_servers=BOOTSTRAP_SERVERS)
+        print("Connected to Kafka brokers")
+        break
+    except KafkaError as e:
+        print(f"Kafka not ready, retrying in 5s... ({e})")
+        time.sleep(5)
 
-# ---------- WebSocket Callbacks ----------
+# Ensure topic exists
+try:
+    if TOPIC not in admin.list_topics():
+        admin.create_topics([NewTopic(name=TOPIC, num_partitions=3, replication_factor=2)])
+        print(f"Topic '{TOPIC}' created")
+    else:
+        print(f"Topic '{TOPIC}' already exists")
+except TopicAlreadyExistsError:
+    print(f"Topic '{TOPIC}' already exists (caught exception)")
+
+# Kafka producer
+while True:
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=BOOTSTRAP_SERVERS,
+            value_serializer=lambda v: json.dumps(v).encode("utf-8")
+        )
+        print("Kafka producer ready")
+        break
+    except KafkaError as e:
+        print(f"Kafka not ready for producer, retrying in 5s... ({e})")
+        time.sleep(5)
+
+# WebSocket callbacks
 def on_open(ws):
     print("WebSocket connection opened")
-    subscribe_message = {
+    ws.send(json.dumps({
         "event": "subscribe",
         "pair": ["BTC/USD", "ETH/USD"],
         "subscription": {"name": "trade"}
-    }
-    ws.send(json.dumps(subscribe_message))
+    }))
 
 def on_message(ws, message):
     data = json.loads(message)
-    if isinstance(data, list):
+    if isinstance(data, list) and len(data) >= 4:
         trades = data[1]
-        pair = data[3] if len(data) > 3 else "unknown"
+        pair = data[3]
         for trade in trades:
             trade_message = {
                 "pair": pair,
@@ -33,8 +63,8 @@ def on_message(ws, message):
                 "timestamp": trade[2],
                 "side": trade[3]
             }
-            producer.send(topic_name, trade_message)
-            print(f"Sent trade to Kafka: {trade_message}")
+            producer.send(TOPIC, trade_message)
+            print(f"Sent trade: {trade_message}")
 
 def on_error(ws, error):
     print(f"WebSocket error: {error}")
@@ -42,10 +72,8 @@ def on_error(ws, error):
 def on_close(ws, close_status_code, close_msg):
     print(f"WebSocket closed: {close_status_code}, {close_msg}")
 
-# ---------- Start WebSocket ----------
-ws_url = "wss://ws.kraken.com"
 ws_app = WebSocketApp(
-    ws_url,
+    "wss://ws.kraken.com",
     on_open=on_open,
     on_message=on_message,
     on_error=on_error,
