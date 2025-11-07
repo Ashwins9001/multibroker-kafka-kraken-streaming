@@ -5,8 +5,8 @@ services:
     image: confluentinc/cp-kafka:7.7.0
     container_name: kafka-1
     ports:
-      - "9092:9092"   # client
-      - "9093:9093"   # controller
+      - "9092:9092"
+      - "9093:9093"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -22,13 +22,15 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     volumes:
       - kafka1-data:/var/lib/kafka/data
+    networks:
+      - kafka-net
 
   kafka-2:
     image: confluentinc/cp-kafka:7.7.0
     container_name: kafka-2
     ports:
-      - "9094:9094"   # client
-      - "9095:9095"   # controller
+      - "9094:9094"
+      - "9095:9095"
     environment:
       KAFKA_NODE_ID: 2
       KAFKA_PROCESS_ROLES: broker,controller
@@ -44,16 +46,22 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     volumes:
       - kafka2-data:/var/lib/kafka/data
+    networks:
+      - kafka-net
 
   kafka-init:
     image: confluentinc/cp-kafka:7.7.0
     depends_on:
       - kafka-1
       - kafka-2
+    networks:
+      - kafka-net
     entrypoint: >
       sh -c "
       echo 'Waiting for Kafka brokers to be ready...' &&
-      sleep 40 &&
+      until kafka-topics --bootstrap-server kafka-1:9092,kafka-2:9094 --list >/dev/null 2>&1; do
+        echo 'Waiting for brokers...'; sleep 5;
+      done &&
       kafka-topics --create --topic kraken-trades --bootstrap-server kafka-1:9092,kafka-2:9094 --partitions 3 --replication-factor 2 ||
       echo 'Topic kraken-trades already exists'
       "
@@ -65,6 +73,8 @@ services:
     container_name: kraken-producer
     depends_on:
       - kafka-init
+    networks:
+      - kafka-net
 
   kraken-consumer:
     build:
@@ -72,12 +82,16 @@ services:
       dockerfile: Dockerfile.consumer
     container_name: kraken-consumer
     depends_on:
-      - kafka-1
-      - kafka-2
+      - kafka-init
     volumes:
       - ./kraken_trades.txt:/app/kraken_trades.txt
-
+    networks:
+      - kafka-net
 
 volumes:
   kafka1-data:
   kafka2-data:
+
+networks:
+  kafka-net:
+    driver: bridge
