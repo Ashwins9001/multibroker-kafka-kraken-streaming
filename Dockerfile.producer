@@ -1,0 +1,6 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY kraken_websocket.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+CMD ["python", "kraken_websocket.py"]

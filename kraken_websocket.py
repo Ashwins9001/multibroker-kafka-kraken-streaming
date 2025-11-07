@@ -5,7 +5,7 @@ from websocket import WebSocketApp
 
 # ---------- 1. Kafka Producer ----------
 producer = KafkaProducer(
-    bootstrap_servers=["localhost:9092", "localhost:9094"],  # list all brokers
+    bootstrap_servers=["kafka-1:9092", "kafka-2:9094"],  # list all brokers
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 

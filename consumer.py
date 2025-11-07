@@ -4,7 +4,7 @@ from kafka import KafkaConsumer
 # ---------- Kafka Consumer ----------
 consumer = KafkaConsumer(
     "kraken-trades",
-    bootstrap_servers=["localhost:9092", "localhost:9094"],
+    bootstrap_servers=["kafka-1:9092", "kafka-2:9094"],
     auto_offset_reset="earliest",
     group_id="kraken-consumer-group",
     value_deserializer=lambda v: json.loads(v.decode("utf-8"))
